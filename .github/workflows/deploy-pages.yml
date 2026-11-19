@@ -1,0 +1,79 @@
+# Build the MA 124 copy of APEX Calculus and publish it to GitHub Pages.
+#
+#   * pull request        -> build only (proves the book still builds)
+#   * push to main        -> build and deploy
+#   * workflow_dispatch   -> build and deploy (manual run)
+#
+# The book is built in the PreTeXt "full" image (TeX, Asymptote, pdf2svg),
+# with the CLI pinned by requirements.txt.  Its WeBWorK exercises come
+# from the server named in publication/publication-ma124.ptx.
+name: Build and deploy APEX Calculus (MA 124)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    container: oscarlevin/pretext-full@sha256:c93aca66c779e711a2581a17dc51a904caffb812e098f2bbbfc1b6085cf30f89
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install the pinned PreTeXt CLI
+        run: |
+          git config --global --add safe.directory "$(pwd)"
+          pip install -r requirements.txt --break-system-packages
+          pretext --version
+
+      - name: Ensure Asymptote and dvisvgm
+        shell: bash
+        run: |
+          need=""
+          command -v asy     >/dev/null 2>&1 || need="$need asymptote"
+          command -v dvisvgm >/dev/null 2>&1 || need="$need dvisvgm"
+          if [ -n "$need" ]; then
+            apt-get update -qq && apt-get install -y --no-install-recommends $need
+          fi
+          asy -version 2>&1 | head -1
+
+      - name: Build the book
+        shell: bash
+        run: |
+          set -o pipefail
+          pretext build ma124 2>&1 | { grep -v 'asset directories' || true; }
+          test -f output/ma124/index.html \
+            || { echo "::error::the build produced no output/ma124/index.html"; exit 1; }
+          echo "Built from ${GITHUB_REF_NAME} @ ${GITHUB_SHA} on $(date -u '+%Y-%m-%d %H:%M UTC')" \
+            > output/ma124/build-info.txt
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: output/ma124
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

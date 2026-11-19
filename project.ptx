@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- APEX Calculus, VMI MA 124 (Calculus II) copy: chapters 1-9 of the
+     full book (Calculus I for review, then integration through sequences
+     and series), numbered as in the full book, from
+     geoff-cox/apex-PROTEUS-fork.
+     One target: the HTML book that .github/workflows/deploy-pages.yml
+     builds and publishes to https://geoff-cox.github.io/apex-ma124 . -->
+<project ptx-version="2" source="ptx" asy-method="local">
+  <targets>
+    <target name="ma124" format="html" source="apex-ma124.ptx" publication="publication-ma124.ptx" output-dir="ma124"/>
+  </targets>
+</project>

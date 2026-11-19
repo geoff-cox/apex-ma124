@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<publication>
+    <!-- VMI MA 124 copy of APEX Calculus (geoff-cox/apex-ma124), adapted
+         from publication-web.ptx of geoff-cox/apex-PROTEUS-fork: only the
+         baseurl and the feedback link differ. -->
+
+    <!-- Relative path, relative to "main" source file -->
+    <source>
+        <directories generated="../generated-assets"/>
+        <version include="main color novideo taypoly-late web"/>
+    </source>
+
+    <webwork server="https://webwork-dev.uleth.ca" course="apex-main"/>
+
+    <common>
+      <tableofcontents level="2"/>
+      <exercise-divisional hint="no" answer="no" solution="no"/>
+      <exercise-reading hint="yes" answer="no" solution="no"/>
+      <fillin textstyle="underline" mathstyle="underline"/>
+    </common>
+    <!-- HTML-Specific Options -->
+    <html>
+        <calculator model="geogebra-graphing"/>
+        <brandlogo url="http://www.apexcalculus.com" source="images/APEX.png"/>
+        <index-page ref="apex-calculus"/>
+        <video privacy="yes"/>
+        <!-- baseurl should not have a trailing slash -->
+        <baseurl href="https://geoff-cox.github.io/apex-ma124"/>
+        <knowl example="no"/>
+        <asymptote links="yes"/>
+        <webwork divisional="dynamic"/>
+        <feedback href="https://github.com/geoff-cox/apex-ma124/issues"/>
+    </html>
+    <!-- PDF-Specific Options -->
+    <latex print="no" sides="one">
+      <asymptote links="yes"/>
+      <page>
+        <geometry>inner=1in,textheight=9in,textwidth=320pt,marginparwidth=150pt,marginparsep=20pt,bottom=1in,footskip=29pt</geometry>
+      </page>
+    </latex>
+    <epub>
+      <cover front="cover/cover.png"/>
+    </epub>
+</publication>
