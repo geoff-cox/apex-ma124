@@ -4,9 +4,12 @@
 #   * push to main        -> build and deploy
 #   * workflow_dispatch   -> build and deploy (manual run)
 #
-# The book is built in the PreTeXt "full" image (TeX, Asymptote, pdf2svg),
-# with the CLI pinned by requirements.txt.  Its WeBWorK exercises come
-# from the server named in publication/publication-ma124.ptx.
+# The book is built on the Ubuntu runner with Debian's TeX Live packages,
+# the same set that built it locally, and the CLI pinned by
+# requirements.txt.  (The first run used the oscarlevin/pretext-full
+# container: its minimal TinyTeX lacks packages APEX's latex-image
+# preamble loads, so every TikZ image failed.)  The WeBWorK exercises
+# come from the server named in publication/publication-ma124.ptx.
 name: Build and deploy APEX Calculus (MA 124)
 
 on:
@@ -29,33 +32,68 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 240
-    container: oscarlevin/pretext-full@sha256:c93aca66c779e711a2581a17dc51a904caffb812e098f2bbbfc1b6085cf30f89
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node (PreTeXt builds its CSS with it)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install TeX, Asymptote and the image converters
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+            texlive-xetex texlive-latex-extra texlive-pictures texlive-science \
+            texlive-fonts-recommended fonts-lmodern asymptote dvisvgm pdf2svg \
+            poppler-utils ghostscript
+          xelatex --version | head -1
+          asy -version 2>&1 | head -1
+
       - name: Install the pinned PreTeXt CLI
         run: |
-          git config --global --add safe.directory "$(pwd)"
-          pip install -r requirements.txt --break-system-packages
+          pip install -r requirements.txt
           pretext --version
 
-      - name: Ensure Asymptote and dvisvgm
-        shell: bash
+      - name: Use the CLI's bundled Runestone services
+        # pretext 2.49.1 parses the live Runestone services file with
+        # ET.fromstring() on a str, which lxml refuses now that the file
+        # declares its encoding ("Unicode strings with encoding declaration
+        # are not supported"; fixed upstream in 2.56.1).  Seed the cache
+        # file the CLI falls back to, and make runestone.academy unreachable
+        # for the build, so the CLI uses the Runestone services it ships
+        # with, as an offline build does.  Drop this step when the pin
+        # reaches 2.56.1 or later.
         run: |
-          need=""
-          command -v asy     >/dev/null 2>&1 || need="$need asymptote"
-          command -v dvisvgm >/dev/null 2>&1 || need="$need dvisvgm"
-          if [ -n "$need" ]; then
-            apt-get update -qq && apt-get install -y --no-install-recommends $need
-          fi
-          asy -version 2>&1 | head -1
+          python - <<'PY'
+          from pretext import resources
+          cache = resources.resource_base_path() / "rs_cache"
+          src, dst = cache / "runestone_services.xml", cache / "rs_services.xml"
+          if not dst.exists():
+              dst.write_text(src.read_text())
+          print("Runestone services cache:", dst, sorted(p.name for p in cache.iterdir()))
+          PY
+          echo "127.0.0.1 runestone.academy" | sudo tee -a /etc/hosts
 
       - name: Build the book
         shell: bash
         run: |
           set -o pipefail
-          pretext build ma124 2>&1 | { grep -v 'asset directories' || true; }
+          if ! pretext build ma124 2>&1 | { grep -v 'asset directories' || true; }; then
+            echo "::group::LaTeX diagnostics (debug re-run)"
+            pretext build ma124 -v debug 2>&1 \
+              | sed -E 's/\x1b\[[0-9;]*m//g; s/^(debug|info|warning|error): +//' \
+              | grep -E '^! |^l\.[0-9]+ |LaTeX Error|Emergency stop|not found' \
+              | awk '!seen[$0]++' | head -40 || true
+            echo "::endgroup::"
+            exit 1
+          fi
           test -f output/ma124/index.html \
             || { echo "::error::the build produced no output/ma124/index.html"; exit 1; }
           echo "Built from ${GITHUB_REF_NAME} @ ${GITHUB_SHA} on $(date -u '+%Y-%m-%d %H:%M UTC')" \
