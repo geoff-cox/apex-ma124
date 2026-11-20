@@ -61,6 +61,26 @@ jobs:
           pip install -r requirements.txt
           pretext --version
 
+      - name: Use the CLI's bundled Runestone services
+        # pretext 2.49.1 parses the live Runestone services file with
+        # ET.fromstring() on a str, which lxml refuses now that the file
+        # declares its encoding ("Unicode strings with encoding declaration
+        # are not supported"; fixed upstream in 2.56.1).  Seed the cache
+        # file the CLI falls back to, and make runestone.academy unreachable
+        # for the build, so the CLI uses the Runestone services it ships
+        # with, as an offline build does.  Drop this step when the pin
+        # reaches 2.56.1 or later.
+        run: |
+          python - <<'PY'
+          from pretext import resources
+          cache = resources.resource_base_path() / "rs_cache"
+          src, dst = cache / "runestone_services.xml", cache / "rs_services.xml"
+          if not dst.exists():
+              dst.write_text(src.read_text())
+          print("Runestone services cache:", dst, sorted(p.name for p in cache.iterdir()))
+          PY
+          echo "127.0.0.1 runestone.academy" | sudo tee -a /etc/hosts
+
       - name: Build the book
         shell: bash
         run: |

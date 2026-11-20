@@ -72,7 +72,9 @@ pretext view ma124
 ```
 
 The first build is slow: it generates every image and every WeBWorK
-exercise. `.github/workflows/deploy-pages.yml` builds the book on every
+exercise. Runestone's services come from the copy bundled with the
+pinned CLI (2.49.1 cannot parse the file Runestone's CDN serves now; the
+workflow says how, and when to drop that step). `.github/workflows/deploy-pages.yml` builds the book on every
 pull request and publishes it to GitHub Pages on every push to `main`
 (or a manual run).
 
