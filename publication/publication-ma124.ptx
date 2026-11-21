@@ -8,7 +8,7 @@
     <!-- Relative path, relative to "main" source file -->
     <source>
         <directories generated="../generated-assets"/>
-        <version include="main color novideo taypoly-late web"/>
+        <version include="main color novideo taypoly-late web proteus"/>
     </source>
 
     <webwork server="https://webwork-dev.uleth.ca" course="apex-main"/>
