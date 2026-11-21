@@ -29,3 +29,5 @@ codechat_config.yaml
 # validation files
 *-assembled.xml
 *-validation.txt
+
+.venv
